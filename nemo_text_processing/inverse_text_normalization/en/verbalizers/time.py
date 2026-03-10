@@ -52,7 +52,6 @@ class TimeFst(GraphFst):
         )
         suffix = (
             delete_space
-            + insert_space
             + pynutil.delete("suffix:")
             + delete_space
             + pynutil.delete("\"")
