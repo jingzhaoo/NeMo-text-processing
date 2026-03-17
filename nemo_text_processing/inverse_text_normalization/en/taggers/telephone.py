@@ -40,20 +40,22 @@ def get_serial_number(cardinal):
     """
 
     digit = pynini.compose(cardinal.graph_no_exception, NEMO_DIGIT)
+    digit |= pynini.cross("oh", "0") | pynini.cross("o", "0") | pynini.cross("Oh", "0") | pynini.cross("O", "0")
     two_digit = pynutil.add_weight(pynini.compose(cardinal.graph_two_digit, NEMO_DIGIT**2), 0.002)
     character = digit | two_digit | NEMO_ALPHA
-    sequence = (NEMO_LOWER_NOT_A | digit) + pynini.closure(pynutil.delete(" ") + character, 2)
-    sequence |= character + pynini.closure(pynutil.delete(" ") + (digit | NEMO_ALPHA), 2)
+    sep = pynutil.delete(" ") | pynutil.delete(", ")
+    sequence = (NEMO_LOWER_NOT_A | digit) + pynini.closure(sep + character, 2)
+    sequence |= character + pynini.closure(sep + (digit | NEMO_ALPHA), 2)
     sequence2 = (
         NEMO_ALPHA
-        + pynini.closure(pynutil.delete(" ") + NEMO_ALPHA, 1)
-        + pynini.closure(pynutil.delete(" ") + two_digit, 1)
+        + pynini.closure(sep + NEMO_ALPHA, 1)
+        + pynini.closure(sep + two_digit, 1)
     )
-    sequence2 |= NEMO_LOWER_NOT_A + pynini.closure(pynutil.delete(" ") + two_digit, 1)
+    sequence2 |= NEMO_LOWER_NOT_A + pynini.closure(sep + two_digit, 1)
     sequence2 |= (
         two_digit
-        + pynini.closure(pynutil.delete(" ") + two_digit, 1)
-        + pynini.closure(pynutil.delete(" ") + NEMO_ALPHA, 1)
+        + pynini.closure(sep + two_digit, 1)
+        + pynini.closure(sep + NEMO_ALPHA, 1)
     )
     sequence = (sequence | sequence2) @ (pynini.closure(NEMO_ALNUM) + NEMO_DIGIT + pynini.closure(NEMO_ALNUM))
     return sequence.optimize()
