@@ -137,10 +137,19 @@ class TelephoneFst(GraphFst):
             + pynini.closure(pynutil.add_weight(pynutil.delete(" ") + single_double_or_triple_digit, 0.0001))
         ).optimize()
 
-        number_part = pynini.compose(
+        # 10-digit: XXX-XXX-XXXX
+        number_part_10 = pynini.compose(
             single_double_or_triple_digit,
             NEMO_DIGIT**3 + pynutil.insert("-") + NEMO_DIGIT**3 + pynutil.insert("-") + NEMO_DIGIT**4,
         ).optimize()
+
+        # 7-digit: XXX-XXXX
+        number_part_7 = pynini.compose(
+            single_double_or_triple_digit,
+            NEMO_DIGIT**3 + pynutil.insert("-") + NEMO_DIGIT**4,
+        ).optimize()
+
+        number_part = pynutil.add_weight(number_part_10, -0.001) | number_part_7
         number_part = pynutil.insert("number_part: \"") + number_part.optimize() + pynutil.insert("\"")
 
         cardinal_option = pynini.compose(single_double_or_triple_digit, NEMO_DIGIT ** (2, 3))

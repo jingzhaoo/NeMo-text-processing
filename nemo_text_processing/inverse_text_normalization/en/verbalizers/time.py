@@ -50,12 +50,23 @@ class TimeFst(GraphFst):
             + pynini.closure(NEMO_DIGIT, 1)
             + pynutil.delete("\"")
         )
+        normalize_suffix = (
+            pynini.cross("a.m.", "am")
+            | pynini.cross("p.m.", "pm")
+            | pynini.cross("am", "am")
+            | pynini.cross("pm", "pm")
+            | pynini.cross("A.M.", "AM")
+            | pynini.cross("P.M.", "PM")
+            | pynini.cross("AM", "AM")
+            | pynini.cross("PM", "PM")
+        )
+        raw_suffix = pynini.closure(NEMO_CHAR - " ", 1)
         suffix = (
             delete_space
             + pynutil.delete("suffix:")
             + delete_space
             + pynutil.delete("\"")
-            + pynini.closure(NEMO_CHAR - " ", 1)
+            + (raw_suffix @ normalize_suffix)
             + pynutil.delete("\"")
         )
         optional_suffix = pynini.closure(suffix, 0, 1)
