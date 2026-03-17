@@ -1,17 +1,3 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import pynini
 from pynini.lib import pynutil
 
@@ -24,11 +10,23 @@ from nemo_text_processing.text_normalization.en.graph_utils import (
 )
 
 
+def _build_reorder_mmddyyyy_to_yyyymmdd():
+    d = pynini.union(*[str(i) for i in range(10)])
+    insert_sep = d + d + d + d + pynutil.insert("|") + d + d + d + d
+
+    reorder_parts = []
+    for m in range(1, 13):
+        for day in range(1, 32):
+            mmdd = f"{m:02d}{day:02d}"
+            reorder_parts.append(
+                pynini.cross(mmdd + "|", "") + d + d + d + d + pynutil.insert(mmdd)
+            )
+
+    reorder = pynini.union(*reorder_parts).optimize()
+    return (insert_sep @ reorder).optimize()
+
+
 class DateFst(GraphFst):
-    """
-    Finite state transducer for verbalizing date, e.g.
-        date { month: "january" day: "5" year: "2025" preserve_order: true } -> 01/05/2025
-    """
 
     def __init__(self):
         super().__init__(name="date", kind="verbalize")
@@ -74,24 +72,21 @@ class DateFst(GraphFst):
             + pynutil.delete("\"") + NEMO_NOT_QUOTE + pynutil.delete("\"") + delete_space
         )
 
-        slash = pynutil.insert("/")
+        reorder = _build_reorder_mmddyyyy_to_yyyymmdd()
 
-        # month/day/year -> MM/DD/YYYY
-        graph_mdy = (
-            month_num + slash
-            + delete_space + day_padded + slash
-            + delete_space + year
-        )
+        graph_mdy = (month_num + delete_space + day_padded + delete_space + year) @ reorder
 
-        # month/day (no year) -> MM/DD
-        graph_md = month_num + slash + delete_space + day_padded
+        graph_md = month_num + pynutil.insert("/") + delete_space + day_padded
 
-        # day/month/year -> DD/MM/YYYY
-        graph_dmy = (
-            day_padded + slash
-            + delete_space + month_num + slash
-            + delete_space + year
-        )
+        graph_dmy_raw = day_padded + delete_space + month_num + delete_space + year
+        swap_ddmm = []
+        for m in range(1, 13):
+            for day in range(1, 32):
+                swap_ddmm.append(pynini.cross(f"{day:02d}{m:02d}", f"{m:02d}{day:02d}"))
+        swap_first4 = pynini.union(*swap_ddmm).optimize()
+        d = pynini.union(*[str(i) for i in range(10)])
+        swap_ddmm_pass_yyyy = (swap_first4 + d + d + d + d).optimize()
+        graph_dmy = (graph_dmy_raw @ swap_ddmm_pass_yyyy) @ reorder
 
         graph_y = year
         graph_fy = period + pynini.closure(delete_extra_space + year, 0, 1)
